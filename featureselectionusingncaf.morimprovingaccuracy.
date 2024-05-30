@@ -1,0 +1,808 @@
+
+% Paper_Anurag_NCA
+% coc81_DataNnHmNd_
+% For Feature Selection using NCA Feedforward Network
+% Clear workspace and command window
+evalin('base','clear all'); clc;
+
+% 1 Load Data from file
+[FileName,PathName,FilterIndex] = uigetfile({'*.xlsx';'*.xls';'*.csv'},'select the xls file');
+DataOr = readtable([PathName FileName],"TextType","string");% string for devmode
+SummaryDataOr = summary(DataOr); %Print summary of table,
+VarNamesDataOr = DataOr.Properties.VariableDescriptions;% Variable Names
+VarTypesDataOr=varfun(@class,DataOr,'OutputFormat','cell');%Variable types
+[noofRowOr,noofColumnOr]=size(DataOr); % Size of the Data
+
+% DataOr: Contain Original Data
+%% 2 Data Copied to other variable for Data Preprocessing
+% Project_id is removed+
+% DataN : New Data
+DataN = DataOr;
+
+%  Remove the project_id variable because it is a row index and not %  needed.
+% %%%%%%%%%%%%%%%%%%%%%%%%%          Specific to coc81 data  %%%%%
+
+DataN.project_id = [];
+
+SummaryDataN = summary(DataN); %Print summary of table,
+VarNamesDataN = DataN.Properties.VariableDescriptions;% Variable Names
+VarTypesDataN1=varfun(@class,DataN,'OutputFormat','cell');%Variable types:devmode is string
+[noofRow_DataN,noofColumn_DataN]=size(DataN);
+
+% DataN : Conatin all data except first column project id
+%% 
+% 3  Handling missing values
+ DataNHm=DataN; % Data Copied to DataNHm for handling missing values
+ 
+% Find missing elements in data 
+missingElementsDataNHm = ismissing(DataNHm);
+
+% Number of Vriables having missing data
+numMissinginVarDataNHm = sum(missingElementsDataNHm,1);
+
+% Name of Vriables having missing data
+NameofVarMissingDataNHm=DataNHm.Properties.VariableNames(numMissinginVarDataNHm > 0);
+
+% Remove missing rows from DataNHm
+DataNHm = rmmissing(DataNHm); 
+[noofRow_DataNHm,noofColumn_DataNHm]=size(DataNHm);
+
+% Open Data Cleaner App
+%dataCleaner
+% DataNHm: Except Project_id, missing data removed
+%%
+% 4 convert text data from string to categorical
+
+DataNHm_cat = DataNHm;% Text data is in string type ; Data is copied to DataNHm_cat: for converting string data to categorical
+
+%Select table variables matching the type 'string'
+string_VariableType_DataNHm_cat = vartype("string");
+
+% table categorical_DataNHm_cat contain all column that have string data from DataNHm_cat
+categorical_DataNHm_cat=DataNHm_cat(:,string_VariableType_DataNHm_cat);
+
+% Name of the variables having string data from DataNHm
+categoricalVariableNames_DataNHm_cat = categorical_DataNHm_cat.Properties.VariableDescriptions;% Variable Names contain string data
+
+% using the convertvars function by specifying a string array containing the names of all the categorical input variables. 
+% In this data set, there is one categorical features with names "devmode".
+
+% using the convertvars function by specifying a string array containing the names of all the categorical input variables. 
+DataNHm_cat = convertvars(DataNHm_cat,categoricalVariableNames_DataNHm_cat,'categorical');
+
+VarTypesDataNHm_cat=varfun(@class,DataNHm_cat,'OutputFormat','cell');%Variable types after converting string variables to categori
+
+% DataNHm_cat: Contain All data except project_id, removed missing data and string variables converted to categorical
+%%
+% 5 Convert Categorical data to numeric 
+
+% Convert DataNHm_cat (table to double) as normalize not working on table containing categorical data
+DataNnHm = DataNHm{:,:};% string se lena he type of data is string
+DataNnHm = double(DataNnHm);% Convert to double devmode become Nan
+First_Column_DataNHm_cat = DataNHm_cat{:,["devmode"]}; %categorical se 1st column lena he
+DataNnHm(:,1) = First_Column_DataNHm_cat;
+% DataNnHm contain all data except project_id, missing data removed, &
+% devmode categorical data is converted to numeric (double by replacing its categories by 1 2 & 3)
+ 
+[noofRow_DataNnHm,noofColumn_DataNnHm]=size(DataNnHm);
+VarNamesDataNnHm = DataNHm.Properties.VariableDescriptions;
+
+% DataNnHm: Except Project_id,missing data removed,Categorical variables converted to numerical
+%%
+% 6 Normalize data using min-max 
+
+% A No Normalization [DataNnHm: on data Except Project_id,missing data removed, Categorical Variables converted to numerical]
+ 
+% B Normalize DataNnHm data using min-max 
+
+% All variables are normalized 
+DataNnHmN = normalize(DataNnHm,"scale");
+[noofRow_DataNnHmN,noofColumn_DataNnHmN]=size(DataNnHmN);
+VarNamesDataNnHmN = DataNHm.Properties.VariableDescriptions;
+
+% DataNHm: Except Project_id, missing data removed,Not Normalized
+% DataNHm_cat: Except Project_id, missing data removed,Not Normalized, Text Variables are converted to categorical
+% DataNnHm : Except Project_id, missing data removed,Not Normalized, Text Variables are converted to categorical, categorical converted to numerical
+% DataNnHmN: Except Project_id, missing data removed,Not Normalized, Text Variables are converted to categorical, categorical converted to numerical, normalization of complete data using min max
+%%
+% 7 Feature Selection using NCA
+
+% A Feature Selection using NCA on not normalized data
+
+% [DataNnHm:Data Used: Except Project_id, missing data removed,Not Normalized, Text Variables are converted to categorical, categorical converted to numerical]
+% No need to Convert DataNnHmd (table to double) as it is already in double during normalization as fsrnca not working on table
+
+DataNnHmd = DataNnHm;
+[noofRow_DataNnHmd,noofColumn_DataNnHmd]=size(DataNnHmd);
+
+% Separate predictor variable and response variables of DataNnHmd
+DataNnHmd_PV=(DataNnHmd(:,1:noofColumn_DataNnHmd-1));
+DataNnHmd_RV=(DataNnHmd(:,noofColumn_DataNnHmd));
+
+% Use fsrnca (NCA) neighborhood component analysis for feature selection.
+% for mdlNnHmd : Default parameter settings for fsrncs
+mdlNnHmd1 = fsrnca(DataNnHmd_PV,DataNnHmd_RV);
+
+%Evaluate accuracy of learned feature weights on test data ('mse'	Mean squared error, (Default), other option 'mad'	Mean absolute deviation)
+err_mdlNnHmd1 = loss(mdlNnHmd1,DataNnHmd_PV,DataNnHmd_RV);%mse
+disp(['Loss(MSE) for Model named mdlNnHmd1 without Normalization is :', num2str(err_mdlNnHmd1)])
+
+
+%Plot the selected features. The weights of the irrelevant features should be close to zero.
+% figure for mdlNnHmd : Default parameter settings for fsrncs
+figure('Name',sprintf('Feat_Sel wid_DefArg_fsrncs_err_mdlNnHmd = %f',err_mdlNnHmd1))
+plot(mdlNnHmd1.FeatureWeights,'ro')
+[tNnHmd,sNnHmd] = title('For DataNnHmd: Except project id, Rem Missing Rows','Numeric & Not Normalize',...
+    'Color','red');
+tNnHmd.FontSize = 10;
+sNnHmd.FontAngle = 'italic';
+grid on
+xlabel('Feature Index')
+xticks([1:noofColumn_DataNnHmd])
+VarNamesDataN_P=(VarNamesDataN);
+VarNamesDataN_P_PV=VarNamesDataN_P((1:length(VarNamesDataN_P)-1));
+
+% label on x axis with feature number and name
+Feature_No_cell =num2cell(1:length(VarNamesDataN_P_PV));
+Feature_No_str=string(Feature_No_cell);
+Dash = {'-'};
+xlabels = strcat(Feature_No_str, Dash,VarNamesDataN_P_PV);
+
+xticklabels(xlabels)
+xtickangle(90)
+ylabel('Feature Weight')
+
+% B Feature Selection using NCA on Normalized data
+% [Data Used:DataNnHmN: Except Project_id,Categorical to numeric, missing data removed, normalization using min max]
+
+% No need to Convert DataNnHmN to double as it is already in double as (fsrnca not working on table)
+DataNnHmNd = DataNnHmN;
+[noofRow_DataNnHmNd,noofColumn_DataNnHmNd]=size(DataNnHmNd);
+
+% Separate predictor variable and response variables of DataNnHmNd
+DataNnHmNd_PV=(DataNnHmNd(:,1:noofColumn_DataNnHmNd-1));
+DataNnHmNd_RV=(DataNnHmNd(:,noofColumn_DataNnHmNd));
+
+% Use fsrnca (NCA) neighborhood component analysis for feature selection.
+% for mdlNnHmNd1 : Default parameter settings for fsrncs
+mdlNnHmNd1 = fsrnca(DataNnHmNd_PV,DataNnHmNd_RV);
+
+%Evaluate accuracy of learned feature weights on test data ('mse'	Mean squared error, (Default), other option 'mad'	Mean absolute deviation)
+err_mdlNnHmNd1 = loss(mdlNnHmNd1,DataNnHmNd_PV,DataNnHmNd_RV);% mse
+disp(['Loss(MSE) for Model named mdlNnHmNd1 with Normalization is :', num2str(err_mdlNnHmNd1)])
+
+%Plot the selected features. The weights of the irrelevant features should be close to zero.
+% figure for mdlNnHmNd : Default parameter settings for fsrncs
+figure('Name',sprintf('Feat_Sel wid_DefArg_fsrncs_err_mdlNnHmNd = %f',err_mdlNnHmNd1))
+plot(mdlNnHmNd1.FeatureWeights,'ro')
+[tNnHmNd,sNnHmNd] = title('For DataNnHmNd: except project id, Numeric Data','Rem Missing Rows & Normalized',...
+    'Color','red');
+tNnHmNd.FontSize = 10;
+sNnHmNd.FontAngle = 'italic';
+grid on
+xlabel('Feature Index')
+xticks([1:noofColumn_DataNnHmd])
+VarNamesDataN_P=(VarNamesDataN);
+VarNamesDataN_P_PV=VarNamesDataN_P((1:length(VarNamesDataN_P)-1));
+
+% label on x axis with feature number and name
+Feature_No_cell =num2cell(1:length(VarNamesDataN_P_PV));
+Feature_No_str=string(Feature_No_cell);
+Dash = {'-'};
+xlabels = strcat(Feature_No_str, Dash,VarNamesDataN_P_PV);
+xticklabels(xlabels)
+xtickangle(90)
+ylabel('Feature Weight')
+%%
+% Minimum Loss (Error_mse) NCA
+err_Values_NCA= [err_mdlNnHmd1; err_mdlNnHmNd1];
+err_Names_NCA ={'err_mdlNnHmd';'err_mdlNnHmNd'};
+err_Table_NCA = table(categorical(err_Names_NCA),err_Values_NCA,...
+                   'VariableNames',{'err_Names_NCA','err_Values_NCA'});
+VarNames_err_Table_NCA = err_Table_NCA.Properties.VariableNames;% Variable Names
+VarTypes_err_Table_NCA=varfun(@class,err_Table_NCA,'OutputFormat','cell');%Variable types
+
+[Min_err_NCA,Idx_Min_err_NCA]=min(err_Table_NCA.err_Values_NCA);
+ModelName_Min_err_NCA=err_Table_NCA.err_Names_NCA(Idx_Min_err_NCA);
+
+disp(['Model named',ModelName_Min_err_NCA, 'with min loss(Err: mse):', num2str(Min_err_NCA)])
+disp('Min Error is for Normalized data so we vary different parameters for Normalized data')
+%%
+%  Feature Selection using NCA on Normalized data by varying different parameters
+% [Data Used:DataNnHmN: Except Project_id,Categorical to numeric, missing data removed, normalization using min max]
+
+% No need to Convert DataNnHmN to double as it is already in double as (fsrnca not working on table)
+DataNnHmNd = DataNnHmN;
+[noofRow_DataNnHmNd,noofColumn_DataNnHmNd]=size(DataNnHmNd);
+
+% Separate predictor variable and response variables of DataNnHmNd
+DataNnHmNd_PV=(DataNnHmNd(:,1:noofColumn_DataNnHmNd-1));
+DataNnHmNd_RV=(DataNnHmNd(:,noofColumn_DataNnHmNd));
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Use fsrnca (NCA) neighborhood component analysis for feature selection.
+% for mdlNnHmNd2 : vary fitmethod to 'none'
+mdlNnHmNd2 = fsrnca(DataNnHmNd_PV,DataNnHmNd_RV, 'FitMethod','none');
+
+%Evaluate accuracy of learned feature weights on test data ('mse'	Mean squared error, (Default), other option 'mad'	Mean absolute deviation)
+err_mdlNnHmNd2 = loss(mdlNnHmNd2,DataNnHmNd_PV,DataNnHmNd_RV);% mse
+disp(['Loss(MSE) for Model named mdlNnHmNd2 with Normalization & Fitmethod none is :', num2str(err_mdlNnHmNd2)])
+
+%Plot the selected features. The weights of the irrelevant features should be close to zero.
+% figure for mdlNnHmNd2 : vary fitmethod to 'none' settings for fsrncs
+figure('Name',sprintf('Feat_Sel wid_fitmethod none_fsrncs_err_mdlNnHmNd = %f',err_mdlNnHmNd2))
+plot(mdlNnHmNd2.FeatureWeights,'ro')
+[tNnHmNd,sNnHmNd] = title('For DataNnHmNd: except project id, Numeric Data','Rem Missing Rows , Normalized fitmethod none',...
+   'Color','red');  
+tNnHmNd.FontSize = 10;
+sNnHmNd.FontAngle = 'italic';
+grid on
+xlabel('Feature Index')
+xticks([1:noofColumn_DataNnHmd])
+VarNamesDataN_P=(VarNamesDataN);
+VarNamesDataN_P_PV=VarNamesDataN_P((1:length(VarNamesDataN_P)-1));
+
+% label on x axis with feature number and name
+Feature_No_cell =num2cell(1:length(VarNamesDataN_P_PV));
+Feature_No_str=string(Feature_No_cell);
+Dash = {'-'};
+xlabels = strcat(Feature_No_str, Dash,VarNamesDataN_P_PV);
+xticklabels(xlabels)
+xtickangle(90)
+ylabel('Feature Weight')
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Use fsrnca (NCA) neighborhood component analysis for feature selection.
+% for mdlNnHmNd3 : vary fitmethod to 'average'
+mdlNnHmNd3 = fsrnca(DataNnHmNd_PV,DataNnHmNd_RV, 'FitMethod','average','solver','lbfgs','lambda',0.015);
+
+%Evaluate accuracy of learned feature weights on test data ('mse'	Mean squared error, (Default), other option 'mad'	Mean absolute deviation)
+err_mdlNnHmNd3 = loss(mdlNnHmNd3,DataNnHmNd_PV,DataNnHmNd_RV);% mse
+disp(['Loss(MSE) for Model named mdlNnHmNd3 with Normalization & Fitmethod average is :', num2str(err_mdlNnHmNd3)])
+
+%Plot the selected features. The weights of the irrelevant features should be close to zero.
+% figure for mdlNnHmNd3 : vary fitmethod to 'average' settings for fsrncs
+figure('Name',sprintf('Feat_Sel wid_fitmethod average_fsrncs_err_mdlNnHmNd = %f',err_mdlNnHmNd3))
+plot(mdlNnHmNd3.FeatureWeights,'ro')
+[tNnHmNd,sNnHmNd] = title('For DataNnHmNd: except project id, Numeric Data','Rem Missing Rows , Normalized fitmethod average',...
+   'Color','red');  
+tNnHmNd.FontSize = 10;
+sNnHmNd.FontAngle = 'italic';
+grid on
+xlabel('Feature Index')
+xticks([1:noofColumn_DataNnHmd])
+VarNamesDataN_P=(VarNamesDataN);
+VarNamesDataN_P_PV=VarNamesDataN_P((1:length(VarNamesDataN_P)-1));
+
+% label on x axis with feature number and name
+Feature_No_cell =num2cell(1:length(VarNamesDataN_P_PV));
+Feature_No_str=string(Feature_No_cell);
+Dash = {'-'};
+xlabels = strcat(Feature_No_str, Dash,VarNamesDataN_P_PV);
+xticklabels(xlabels)
+xtickangle(90)
+ylabel('Feature Weight')
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Use fsrnca (NCA) neighborhood component analysis for feature selection.
+% for mdlNnHmNd4 : vary fitmethod to 'none'
+mdlNnHmNd4 = fsrnca(DataNnHmNd_PV,DataNnHmNd_RV, 'FitMethod','exact','Solver','sgd','lambda',0.015);
+
+%Evaluate accuracy of learned feature weights on test data ('mse'	Mean squared error, (Default), other option 'mad'	Mean absolute deviation)
+err_mdlNnHmNd4 = loss(mdlNnHmNd4,DataNnHmNd_PV,DataNnHmNd_RV);% mse
+disp(['Loss(MSE) for Model named mdlNnHmNd4 with Normalization & Fitmethod exact is :', num2str(err_mdlNnHmNd4)])
+
+%Plot the selected features. The weights of the irrelevant features should be close to zero.
+% figure for mdlNnHmNd2 : vary fitmethod to 'exact' settings for fsrncs
+figure('Name',sprintf('Feat_Sel wid_fitmethod exact_fsrncs_err_mdlNnHmNd = %f',err_mdlNnHmNd4))
+plot(mdlNnHmNd4.FeatureWeights,'ro')
+[tNnHmNd,sNnHmNd] = title('For DataNnHmNd: except project id, Numeric Data','Rem Missing Rows , Normalized fitmethod exact',...
+   'Color','red');  
+tNnHmNd.FontSize = 10;
+sNnHmNd.FontAngle = 'italic';
+grid on
+xlabel('Feature Index')
+xticks([1:noofColumn_DataNnHmd])
+VarNamesDataN_P=(VarNamesDataN);
+VarNamesDataN_P_PV=VarNamesDataN_P((1:length(VarNamesDataN_P)-1));
+
+% label on x axis with feature number and name
+Feature_No_cell =num2cell(1:length(VarNamesDataN_P_PV));
+Feature_No_str=string(Feature_No_cell);
+Dash = {'-'};
+xlabels = strcat(Feature_No_str, Dash,VarNamesDataN_P_PV);
+xticklabels(xlabels)
+xtickangle(90)
+ylabel('Feature Weight')
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Use fsrnca (NCA) neighborhood component analysis for feature selection.
+% for mdlNnHmNd4a : vary fitmethod to 'none'
+mdlNnHmNd4a = fsrnca(DataNnHmNd_PV,DataNnHmNd_RV, 'FitMethod','none','Solver','sgd','lambda',0.001);
+
+%Evaluate accuracy of learned feature weights on test data ('mse'	Mean squared error, (Default), other option 'mad'	Mean absolute deviation)
+err_mdlNnHmNd4a = loss(mdlNnHmNd4a,DataNnHmNd_PV,DataNnHmNd_RV);% mse
+disp(['Loss(MSE) for Model named mdlNnHmNd4a with Normalization & Fitmethod none is :', num2str(err_mdlNnHmNd4a)])
+
+%Plot the selected features. The weights of the irrelevant features should be close to zero.
+% figure for mdlNnHmNd4a : vary fitmethod to 'exact' settings for fsrncs
+figure('Name',sprintf('Feat_Sel wid_fitmethod none_fsrncs_err_mdlNnHmNd = %f',err_mdlNnHmNd4a))
+plot(mdlNnHmNd4a.FeatureWeights,'ro')
+[tNnHmNd,sNnHmNd] = title('For DataNnHmNd: except project id, Numeric Data','Rem Missing Rows , Normalized fitmethod none',...
+   'Color','red');  
+tNnHmNd.FontSize = 10;
+sNnHmNd.FontAngle = 'italic';
+grid on
+xlabel('Feature Index')
+xticks([1:noofColumn_DataNnHmd])
+VarNamesDataN_P=(VarNamesDataN);
+VarNamesDataN_P_PV=VarNamesDataN_P((1:length(VarNamesDataN_P)-1));
+
+% label on x axis with feature number and name
+Feature_No_cell =num2cell(1:length(VarNamesDataN_P_PV));
+Feature_No_str=string(Feature_No_cell);
+Dash = {'-'};
+xlabels = strcat(Feature_No_str, Dash,VarNamesDataN_P_PV);
+xticklabels(xlabels)
+xtickangle(90)
+ylabel('Feature Weight')
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Use fsrnca (NCA) neighborhood component analysis for feature selection.
+% for mdlNnHmNd4b : vary fitmethod to 'none'
+mdlNnHmNd4b = fsrnca(DataNnHmNd_PV,DataNnHmNd_RV, 'FitMethod','none','Solver','sgd','lambda',0.015,'Standardize',true);
+
+%Evaluate accuracy of learned feature weights on test data ('mse'	Mean squared error, (Default), other option 'mad'	Mean absolute deviation)
+err_mdlNnHmNd4b = loss(mdlNnHmNd4b,DataNnHmNd_PV,DataNnHmNd_RV);% mse
+disp(['Loss(MSE) for Model named mdlNnHmNd4b with Normalization & Fitmethod none is :', num2str(err_mdlNnHmNd4b)])
+
+%Plot the selected features. The weights of the irrelevant features should be close to zero.
+% figure for mdlNnHmNd4b : vary fitmethod to 'exact' settings for fsrncs
+figure('Name',sprintf('Feat_Sel wid_fitmethod none_fsrncs_err_mdlNnHmNd = %f',err_mdlNnHmNd4b))
+plot(mdlNnHmNd4b.FeatureWeights,'ro')
+[tNnHmNd,sNnHmNd] = title('For DataNnHmNd: except project id, Numeric Data','Rem Missing Rows , Normalized fitmethod none',...
+   'Color','red');  
+tNnHmNd.FontSize = 10;
+sNnHmNd.FontAngle = 'italic';
+grid on
+xlabel('Feature Index')
+xticks([1:noofColumn_DataNnHmd])
+VarNamesDataN_P=(VarNamesDataN);
+VarNamesDataN_P_PV=VarNamesDataN_P((1:length(VarNamesDataN_P)-1));
+
+% label on x axis with feature number and name
+Feature_No_cell =num2cell(1:length(VarNamesDataN_P_PV));
+Feature_No_str=string(Feature_No_cell);
+Dash = {'-'};
+xlabels = strcat(Feature_No_str, Dash,VarNamesDataN_P_PV);
+xticklabels(xlabels)
+xtickangle(90)
+ylabel('Feature Weight')
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Use fsrnca (NCA) neighborhood component analysis for feature selection.
+% for mdlNnHmNd5 : vary fitmethod to 'exact'
+mdlNnHmNd5 = fsrnca(DataNnHmNd_PV,DataNnHmNd_RV, 'FitMethod','exact','Solver','minibatch-lbfgs','lambda',0.015);
+
+%Evaluate accuracy of learned feature weights on test data ('mse'	Mean squared error, (Default), other option 'mad'	Mean absolute deviation)
+err_mdlNnHmNd5 = loss(mdlNnHmNd5,DataNnHmNd_PV,DataNnHmNd_RV);% mse
+disp(['Loss(MSE) for Model named mdlNnHmNd5 with Normalization & Fitmethod exact is :', num2str(err_mdlNnHmNd5)])
+
+%Plot the selected features. The weights of the irrelevant features should be close to zero.
+% figure for mdlNnHmNd5 : vary fitmethod to 'exact' settings for fsrncs
+figure('Name',sprintf('Feat_Sel wid_fitmethod exact_fsrncs_err_mdlNnHmNd = %f',err_mdlNnHmNd5))
+plot(mdlNnHmNd5.FeatureWeights,'ro')
+[tNnHmNd,sNnHmNd] = title('For DataNnHmNd: except project id, Numeric Data','Rem Missing Rows , Normalized fitmethod exact',...
+   'Color','red');  
+tNnHmNd.FontSize = 10;
+sNnHmNd.FontAngle = 'italic';
+grid on
+xlabel('Feature Index')
+xticks([1:noofColumn_DataNnHmd])
+VarNamesDataN_P=(VarNamesDataN);
+VarNamesDataN_P_PV=VarNamesDataN_P((1:length(VarNamesDataN_P)-1));
+
+% label on x axis with feature number and name
+Feature_No_cell =num2cell(1:length(VarNamesDataN_P_PV));
+Feature_No_str=string(Feature_No_cell);
+Dash = {'-'};
+xlabels = strcat(Feature_No_str, Dash,VarNamesDataN_P_PV);
+xticklabels(xlabels)
+xtickangle(90)
+ylabel('Feature Weight')
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Use fsrnca (NCA) neighborhood component analysis for feature selection.
+% for mdlNnHmNd6 : vary fitmethod to 'exact'
+mdlNnHmNd6 = fsrnca(DataNnHmNd_PV,DataNnHmNd_RV, 'FitMethod','exact','Solver','lbfgs','lambda',0.015,'Standardize',true);
+
+%Evaluate accuracy of learned feature weights on test data ('mse'	Mean squared error, (Default), other option 'mad'	Mean absolute deviation)
+err_mdlNnHmNd6 = loss(mdlNnHmNd6,DataNnHmNd_PV,DataNnHmNd_RV);% mse
+disp(['Loss(MSE) for Model named mdlNnHmNd6 with Normalization & Fitmethod exact is :', num2str(err_mdlNnHmNd6)])
+
+%Plot the selected features. The weights of the irrelevant features should be close to zero.
+% figure for mdlNnHmNd6 : vary fitmethod to 'exact' settings for fsrncs
+figure('Name',sprintf('Feat_Sel wid_fitmethod exact_fsrncs_err_mdlNnHmNd = %f',err_mdlNnHmNd6))
+plot(mdlNnHmNd6.FeatureWeights,'ro')
+[tNnHmNd,sNnHmNd] = title('For DataNnHmNd: except project id, Numeric Data','Rem Missing Rows , Normalized fitmethod exact',...
+   'Color','red');  
+tNnHmNd.FontSize = 10;
+sNnHmNd.FontAngle = 'italic';
+grid on
+xlabel('Feature Index')
+xticks([1:noofColumn_DataNnHmd])
+VarNamesDataN_P=(VarNamesDataN);
+VarNamesDataN_P_PV=VarNamesDataN_P((1:length(VarNamesDataN_P)-1));
+
+% label on x axis with feature number and name
+Feature_No_cell =num2cell(1:length(VarNamesDataN_P_PV));
+Feature_No_str=string(Feature_No_cell);
+Dash = {'-'};
+xlabels = strcat(Feature_No_str, Dash,VarNamesDataN_P_PV);
+xticklabels(xlabels)
+xtickangle(90)
+ylabel('Feature Weight')
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Use fsrnca (NCA) neighborhood component analysis for feature selection.
+% for mdlNnHmNd7 : vary fitmethod to 'exact'
+mdlNnHmNd7 = fsrnca(DataNnHmNd_PV,DataNnHmNd_RV, 'FitMethod','exact','Solver','lbfgs','lambda',0.018,'Standardize',true);
+
+%Evaluate accuracy of learned feature weights on test data ('mse'	Mean squared error, (Default), other option 'mad'	Mean absolute deviation)
+err_mdlNnHmNd7 = loss(mdlNnHmNd7,DataNnHmNd_PV,DataNnHmNd_RV);% mse
+disp(['Loss(MSE) for Model named mdlNnHmNd7 with Normalization & Fitmethod exact is :', num2str(err_mdlNnHmNd7)])
+
+%Plot the selected features. The weights of the irrelevant features should be close to zero.
+% figure for mdlNnHmNd7 : vary fitmethod to 'exact' settings for fsrncs
+figure('Name',sprintf('Feat_Sel wid_fitmethod exact_fsrncs_err_mdlNnHmNd = %f',err_mdlNnHmNd7))
+plot(mdlNnHmNd7.FeatureWeights,'ro')
+[tNnHmNd,sNnHmNd] = title('For DataNnHmNd: except project id, Numeric Data','Rem Missing Rows , Normalized fitmethod exact',...
+   'Color','red');  
+tNnHmNd.FontSize = 10;
+sNnHmNd.FontAngle = 'italic';
+grid on
+xlabel('Feature Index')
+xticks([1:noofColumn_DataNnHmd])
+VarNamesDataN_P=(VarNamesDataN);
+VarNamesDataN_P_PV=VarNamesDataN_P((1:length(VarNamesDataN_P)-1));
+
+% label on x axis with feature number and name
+Feature_No_cell =num2cell(1:length(VarNamesDataN_P_PV));
+Feature_No_str=string(Feature_No_cell);
+Dash = {'-'};
+xlabels = strcat(Feature_No_str, Dash,VarNamesDataN_P_PV);
+xticklabels(xlabels)
+xtickangle(90)
+ylabel('Feature Weight')
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Use fsrnca (NCA) neighborhood component analysis for feature selection.
+% for mdlNnHmNd8 : vary fitmethod to 'exact'
+mdlNnHmNd8 = fsrnca(DataNnHmNd_PV,DataNnHmNd_RV, 'FitMethod','exact','Solver','lbfgs','lambda',0.02,'Standardize',true);
+
+%Evaluate accuracy of learned feature weights on test data ('mse'	Mean squared error, (Default), other option 'mad'	Mean absolute deviation)
+err_mdlNnHmNd8 = loss(mdlNnHmNd8,DataNnHmNd_PV,DataNnHmNd_RV);% mse
+disp(['Loss(MSE) for Model named mdlNnHmNd8 with Normalization & Fitmethod exact is :', num2str(err_mdlNnHmNd8)])
+
+%Plot the selected features. The weights of the irrelevant features should be close to zero.
+% figure for mdlNnHmNd8 : vary fitmethod to 'exact' settings for fsrncs
+figure('Name',sprintf('Feat_Sel wid_fitmethod exact_fsrncs_err_mdlNnHmNd = %f',err_mdlNnHmNd8))
+plot(mdlNnHmNd8.FeatureWeights,'ro')
+[tNnHmNd,sNnHmNd] = title('For DataNnHmNd: except project id, Numeric Data','Rem Missing Rows , Normalized fitmethod exact',...
+   'Color','red');  
+tNnHmNd.FontSize = 10;
+sNnHmNd.FontAngle = 'italic';
+grid on
+xlabel('Feature Index')
+xticks([1:noofColumn_DataNnHmd])
+VarNamesDataN_P=(VarNamesDataN);
+VarNamesDataN_P_PV=VarNamesDataN_P((1:length(VarNamesDataN_P)-1));
+
+% label on x axis with feature number and name
+Feature_No_cell =num2cell(1:length(VarNamesDataN_P_PV));
+Feature_No_str=string(Feature_No_cell);
+Dash = {'-'};
+xlabels = strcat(Feature_No_str, Dash,VarNamesDataN_P_PV);
+xticklabels(xlabels)
+xtickangle(90)
+ylabel('Feature Weight')
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Use fsrnca (NCA) neighborhood component analysis for feature selection.
+% for mdlNnHmNd9 : vary fitmethod to 'exact'
+mdlNnHmNd9 = fsrnca(DataNnHmNd_PV,DataNnHmNd_RV, 'FitMethod','exact','Solver','lbfgs','lambda',0.03,'Standardize',true);
+
+%Evaluate accuracy of learned feature weights on test data ('mse'	Mean squared error, (Default), other option 'mad'	Mean absolute deviation)
+err_mdlNnHmNd9 = loss(mdlNnHmNd9,DataNnHmNd_PV,DataNnHmNd_RV);% mse
+disp(['Loss(MSE) for Model named mdlNnHmNd9 with Normalization & Fitmethod exact is :', num2str(err_mdlNnHmNd9)])
+
+%Plot the selected features. The weights of the irrelevant features should be close to zero.
+% figure for mdlNnHmNd9 : vary fitmethod to 'exact' settings for fsrncs
+figure('Name',sprintf('Feat_Sel wid_fitmethod exact_fsrncs_err_mdlNnHmNd = %f',err_mdlNnHmNd9))
+plot(mdlNnHmNd9.FeatureWeights,'ro')
+[tNnHmNd,sNnHmNd] = title('For DataNnHmNd: except project id, Numeric Data','Rem Missing Rows , Normalized fitmethod exact',...
+   'Color','red');  
+tNnHmNd.FontSize = 10;
+sNnHmNd.FontAngle = 'italic';
+grid on
+xlabel('Feature Index')
+xticks([1:noofColumn_DataNnHmd])
+VarNamesDataN_P=(VarNamesDataN);
+VarNamesDataN_P_PV=VarNamesDataN_P((1:length(VarNamesDataN_P)-1));
+
+% label on x axis with feature number and name
+Feature_No_cell =num2cell(1:length(VarNamesDataN_P_PV));
+Feature_No_str=string(Feature_No_cell);
+Dash = {'-'};
+xlabels = strcat(Feature_No_str, Dash,VarNamesDataN_P_PV);
+xticklabels(xlabels)
+xtickangle(90)
+ylabel('Feature Weight')
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Use fsrnca (NCA) neighborhood component analysis for feature selection.
+% for mdlNnHmNd10 : vary fitmethod to 'exact'
+mdlNnHmNd10 = fsrnca(DataNnHmNd_PV,DataNnHmNd_RV, 'FitMethod','exact','Solver','lbfgs','lambda',0.04,'Standardize',true);
+
+%Evaluate accuracy of learned feature weights on test data ('mse'	Mean squared error, (Default), other option 'mad'	Mean absolute deviation)
+err_mdlNnHmNd10 = loss(mdlNnHmNd10,DataNnHmNd_PV,DataNnHmNd_RV);% mse
+disp(['Loss(MSE) for Model named mdlNnHmNd10 with Normalization & Fitmethod exact is :', num2str(err_mdlNnHmNd10)])
+
+%Plot the selected features. The weights of the irrelevant features should be close to zero.
+% figure for mdlNnHmNd10 : vary fitmethod to 'exact' settings for fsrncs
+figure('Name',sprintf('Feat_Sel wid_fitmethod exact_fsrncs_err_mdlNnHmNd = %f',err_mdlNnHmNd10))
+plot(mdlNnHmNd10.FeatureWeights,'ro')
+[tNnHmNd,sNnHmNd] = title('For DataNnHmNd: except project id, Numeric Data','Rem Missing Rows , Normalized fitmethod exact',...
+   'Color','red');  
+tNnHmNd.FontSize = 10;
+sNnHmNd.FontAngle = 'italic';
+grid on
+xlabel('Feature Index')
+xticks([1:noofColumn_DataNnHmd])
+VarNamesDataN_P=(VarNamesDataN);
+VarNamesDataN_P_PV=VarNamesDataN_P((1:length(VarNamesDataN_P)-1));
+
+% label on x axis with feature number and name
+Feature_No_cell =num2cell(1:length(VarNamesDataN_P_PV));
+Feature_No_str=string(Feature_No_cell);
+Dash = {'-'};
+xlabels = strcat(Feature_No_str, Dash,VarNamesDataN_P_PV);
+xticklabels(xlabels)
+xtickangle(90)
+ylabel('Feature Weight')
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Use fsrnca (NCA) neighborhood component analysis for feature selection.
+% for mdlNnHmNd11 : vary fitmethod to 'exact'
+mdlNnHmNd11 = fsrnca(DataNnHmNd_PV,DataNnHmNd_RV, 'FitMethod','exact','Solver','lbfgs','lambda',0.05,'Standardize',true);
+
+%Evaluate accuracy of learned feature weights on test data ('mse'	Mean squared error, (Default), other option 'mad'	Mean absolute deviation)
+err_mdlNnHmNd11 = loss(mdlNnHmNd11,DataNnHmNd_PV,DataNnHmNd_RV);% mse
+disp(['Loss(MSE) for Model named mdlNnHmNd11 with Normalization & Fitmethod exact is :', num2str(err_mdlNnHmNd11)])
+
+%Plot the selected features. The weights of the irrelevant features should be close to zero.
+% figure for mdlNnHmNd11 : vary fitmethod to 'exact' settings for fsrncs
+figure('Name',sprintf('Feat_Sel wid_fitmethod exact_fsrncs_err_mdlNnHmNd = %f',err_mdlNnHmNd11))
+plot(mdlNnHmNd11.FeatureWeights,'ro')
+[tNnHmNd,sNnHmNd] = title('For DataNnHmNd: except project id, Numeric Data','Rem Missing Rows , Normalized fitmethod exact',...
+   'Color','red');  
+tNnHmNd.FontSize = 10;
+sNnHmNd.FontAngle = 'italic';
+grid on
+xlabel('Feature Index')
+xticks([1:noofColumn_DataNnHmd])
+VarNamesDataN_P=(VarNamesDataN);
+VarNamesDataN_P_PV=VarNamesDataN_P((1:length(VarNamesDataN_P)-1));
+
+% label on x axis with feature number and name
+Feature_No_cell =num2cell(1:length(VarNamesDataN_P_PV));
+Feature_No_str=string(Feature_No_cell);
+Dash = {'-'};
+xlabels = strcat(Feature_No_str, Dash,VarNamesDataN_P_PV);
+xticklabels(xlabels)
+xtickangle(90)
+ylabel('Feature Weight')
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Use fsrnca (NCA) neighborhood component analysis for feature selection.
+% for mdlNnHmNd12 : vary fitmethod to 'exact'
+mdlNnHmNd12 = fsrnca(DataNnHmNd_PV,DataNnHmNd_RV, 'FitMethod','exact','Solver','lbfgs','lambda',0.06,'Standardize',true);
+
+%Evaluate accuracy of learned feature weights on test data ('mse'	Mean squared error, (Default), other option 'mad'	Mean absolute deviation)
+err_mdlNnHmNd12 = loss(mdlNnHmNd12,DataNnHmNd_PV,DataNnHmNd_RV);% mse
+disp(['Loss(MSE) for Model named mdlNnHmNd12 with Normalization & Fitmethod exact is :', num2str(err_mdlNnHmNd12)])
+
+%Plot the selected features. The weights of the irrelevant features should be close to zero.
+% figure for mdlNnHmNd12 : vary fitmethod to 'exact' settings for fsrncs
+figure('Name',sprintf('Feat_Sel wid_fitmethod exact_fsrncs_err_mdlNnHmNd = %f',err_mdlNnHmNd12))
+plot(mdlNnHmNd12.FeatureWeights,'ro')
+[tNnHmNd,sNnHmNd] = title('For DataNnHmNd: except project id, Numeric Data','Rem Missing Rows , Normalized fitmethod exact',...
+   'Color','red');  
+tNnHmNd.FontSize = 10;
+sNnHmNd.FontAngle = 'italic';
+grid on
+xlabel('Feature Index')
+xticks([1:noofColumn_DataNnHmd])
+VarNamesDataN_P=(VarNamesDataN);
+VarNamesDataN_P_PV=VarNamesDataN_P((1:length(VarNamesDataN_P)-1));
+
+% label on x axis with feature number and name
+Feature_No_cell =num2cell(1:length(VarNamesDataN_P_PV));
+Feature_No_str=string(Feature_No_cell);
+Dash = {'-'};
+xlabels = strcat(Feature_No_str, Dash,VarNamesDataN_P_PV);
+xticklabels(xlabels)
+xtickangle(90)
+ylabel('Feature Weight')
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Use fsrnca (NCA) neighborhood component analysis for feature selection.
+% for mdlNnHmNd13 : vary fitmethod to 'exact'
+mdlNnHmNd13 = fsrnca(DataNnHmNd_PV,DataNnHmNd_RV, 'FitMethod','exact','Solver','lbfgs','lambda',0.01,'Standardize',true);
+
+%Evaluate accuracy of learned feature weights on test data ('mse'	Mean squared error, (Default), other option 'mad'	Mean absolute deviation)
+err_mdlNnHmNd13 = loss(mdlNnHmNd13,DataNnHmNd_PV,DataNnHmNd_RV);% mse
+disp(['Loss(MSE) for Model named mdlNnHmNd13 with Normalization & Fitmethod exact is :', num2str(err_mdlNnHmNd13)])
+
+%Plot the selected features. The weights of the irrelevant features should be close to zero.
+% figure for mdlNnHmNd13 : vary fitmethod to 'exact' settings for fsrncs
+figure('Name',sprintf('Feat_Sel wid_fitmethod exact_fsrncs_err_mdlNnHmNd = %f',err_mdlNnHmNd13))
+plot(mdlNnHmNd13.FeatureWeights,'ro')
+[tNnHmNd,sNnHmNd] = title('For DataNnHmNd: except project id, Numeric Data','Rem Missing Rows , Normalized fitmethod exact',...
+   'Color','red');  
+tNnHmNd.FontSize = 10;
+sNnHmNd.FontAngle = 'italic';
+grid on
+xlabel('Feature Index')
+xticks([1:noofColumn_DataNnHmd])
+VarNamesDataN_P=(VarNamesDataN);
+VarNamesDataN_P_PV=VarNamesDataN_P((1:length(VarNamesDataN_P)-1));
+
+% label on x axis with feature number and name
+Feature_No_cell =num2cell(1:length(VarNamesDataN_P_PV));
+Feature_No_str=string(Feature_No_cell);
+Dash = {'-'};
+xlabels = strcat(Feature_No_str, Dash,VarNamesDataN_P_PV);
+xticklabels(xlabels)
+xtickangle(90)
+ylabel('Feature Weight')
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Use fsrnca (NCA) neighborhood component analysis for feature selection.
+% for mdlNnHmNd14 : vary fitmethod to 'exact'
+mdlNnHmNd14 = fsrnca(DataNnHmNd_PV,DataNnHmNd_RV, 'FitMethod','exact','Solver','lbfgs','lambda',0.001,'Standardize',true);
+
+%Evaluate accuracy of learned feature weights on test data ('mse'	Mean squared error, (Default), other option 'mad'	Mean absolute deviation)
+err_mdlNnHmNd14 = loss(mdlNnHmNd14,DataNnHmNd_PV,DataNnHmNd_RV);% mse
+disp(['Loss(MSE) for Model named mdlNnHmNd14 with Normalization & Fitmethod exact is :', num2str(err_mdlNnHmNd14)])
+
+%Plot the selected features. The weights of the irrelevant features should be close to zero.
+% figure for mdlNnHmNd14 : vary fitmethod to 'exact' settings for fsrncs
+figure('Name',sprintf('Feat_Sel wid_fitmethod exact_fsrncs_err_mdlNnHmNd = %f',err_mdlNnHmNd14))
+plot(mdlNnHmNd14.FeatureWeights,'ro')
+[tNnHmNd,sNnHmNd] = title('For DataNnHmNd: except project id, Numeric Data','Rem Missing Rows , Normalized fitmethod exact',...
+   'Color','red');  
+tNnHmNd.FontSize = 10;
+sNnHmNd.FontAngle = 'italic';
+grid on
+xlabel('Feature Index')
+xticks([1:noofColumn_DataNnHmd])
+VarNamesDataN_P=(VarNamesDataN);
+VarNamesDataN_P_PV=VarNamesDataN_P((1:length(VarNamesDataN_P)-1));
+
+% label on x axis with feature number and name
+Feature_No_cell =num2cell(1:length(VarNamesDataN_P_PV));
+Feature_No_str=string(Feature_No_cell);
+Dash = {'-'};
+xlabels = strcat(Feature_No_str, Dash,VarNamesDataN_P_PV);
+xticklabels(xlabels)
+xtickangle(90)
+ylabel('Feature Weight')
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Use fsrnca (NCA) neighborhood component analysis for feature selection.
+% for mdlNnHmNd15 : vary fitmethod to 'exact'
+mdlNnHmNd15 = fsrnca(DataNnHmNd_PV,DataNnHmNd_RV, 'FitMethod','exact','Solver','lbfgs','lambda',0.0001,'Standardize',true);
+
+%Evaluate accuracy of learned feature weights on test data ('mse'	Mean squared error, (Default), other option 'mad'	Mean absolute deviation)
+err_mdlNnHmNd15 = loss(mdlNnHmNd15,DataNnHmNd_PV,DataNnHmNd_RV);% mse
+disp(['Loss(MSE) for Model named mdlNnHmNd15 with Normalization & Fitmethod exact is :', num2str(err_mdlNnHmNd15)])
+
+%Plot the selected features. The weights of the irrelevant features should be close to zero.
+% figure for mdlNnHmNd15 : vary fitmethod to 'exact' settings for fsrncs
+figure('Name',sprintf('Feat_Sel wid_fitmethod exact_fsrncs_err_mdlNnHmNd = %f',err_mdlNnHmNd15))
+plot(mdlNnHmNd15.FeatureWeights,'ro')
+[tNnHmNd,sNnHmNd] = title('For DataNnHmNd: except project id, Numeric Data','Rem Missing Rows , Normalized fitmethod exact',...
+   'Color','red');  
+tNnHmNd.FontSize = 10;
+sNnHmNd.FontAngle = 'italic';
+grid on
+xlabel('Feature Index')
+xticks([1:noofColumn_DataNnHmd])
+VarNamesDataN_P=(VarNamesDataN);
+VarNamesDataN_P_PV=VarNamesDataN_P((1:length(VarNamesDataN_P)-1));
+
+% label on x axis with feature number and name
+Feature_No_cell =num2cell(1:length(VarNamesDataN_P_PV));
+Feature_No_str=string(Feature_No_cell);
+Dash = {'-'};
+xlabels = strcat(Feature_No_str, Dash,VarNamesDataN_P_PV);
+xticklabels(xlabels)
+xtickangle(90)
+ylabel('Feature Weight')
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Use fsrnca (NCA) neighborhood component analysis for feature selection.
+% for mdlNnHmNd16 : vary fitmethod to 'exact'
+mdlNnHmNd16 = fsrnca(DataNnHmNd_PV,DataNnHmNd_RV, 'FitMethod','exact','Solver','sgd','lambda',0.0001,'Standardize',true);
+
+%Evaluate accuracy of learned feature weights on test data ('mse'	Mean squared error, (Default), other option 'mad'	Mean absolute deviation)
+err_mdlNnHmNd16 = loss(mdlNnHmNd16,DataNnHmNd_PV,DataNnHmNd_RV);% mse
+disp(['Loss(MSE) for Model named mdlNnHmNd16 with Normalization & Fitmethod exact is :', num2str(err_mdlNnHmNd16)])
+
+%Plot the selected features. The weights of the irrelevant features should be close to zero.
+% figure for mdlNnHmNd16 : vary fitmethod to 'exact' settings for fsrncs
+figure('Name',sprintf('Feat_Sel wid_fitmethod exact_fsrncs_err_mdlNnHmNd = %f',err_mdlNnHmNd16))
+plot(mdlNnHmNd16.FeatureWeights,'ro')
+[tNnHmNd,sNnHmNd] = title('For DataNnHmNd: except project id, Numeric Data','Rem Missing Rows , Normalized fitmethod exact',...
+   'Color','red');  
+tNnHmNd.FontSize = 10;
+sNnHmNd.FontAngle = 'italic';
+grid on
+xlabel('Feature Index')
+xticks([1:noofColumn_DataNnHmd])
+VarNamesDataN_P=(VarNamesDataN);
+VarNamesDataN_P_PV=VarNamesDataN_P((1:length(VarNamesDataN_P)-1));
+
+% label on x axis with feature number and name
+Feature_No_cell =num2cell(1:length(VarNamesDataN_P_PV));
+Feature_No_str=string(Feature_No_cell);
+Dash = {'-'};
+xlabels = strcat(Feature_No_str, Dash,VarNamesDataN_P_PV);
+xticklabels(xlabels)
+xtickangle(90)
+ylabel('Feature Weight')
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Use fsrnca (NCA) neighborhood component analysis for feature selection.
+% for mdlNnHmNd17 : vary fitmethod to 'none'
+mdlNnHmNd17 = fsrnca(DataNnHmNd_PV,DataNnHmNd_RV, 'FitMethod','none','Solver','sgd','lambda',0.0001,'Standardize',true);
+
+%Evaluate accuracy of learned feature weights on test data ('mse'	Mean squared error, (Default), other option 'mad'	Mean absolute deviation)
+err_mdlNnHmNd17 = loss(mdlNnHmNd17,DataNnHmNd_PV,DataNnHmNd_RV);% mse
+disp(['Loss(MSE) for Model named mdlNnHmNd17 with Normalization & Fitmethod exact is :', num2str(err_mdlNnHmNd17)])
+
+%Plot the selected features. The weights of the irrelevant features should be close to zero.
+% figure for mdlNnHmNd16 : vary fitmethod to 'exact' settings for fsrncs
+figure('Name',sprintf('Feat_Sel wid_fitmethod none_fsrncs_err_mdlNnHmNd = %f',err_mdlNnHmNd17))
+plot(mdlNnHmNd17.FeatureWeights,'ro')
+[tNnHmNd,sNnHmNd] = title('For DataNnHmNd: except project id, Numeric Data','Rem Missing Rows , Normalized fitmethod none',...
+   'Color','red');  
+tNnHmNd.FontSize = 10;
+sNnHmNd.FontAngle = 'italic';
+grid on
+xlabel('Feature Index')
+xticks([1:noofColumn_DataNnHmd])
+VarNamesDataN_P=(VarNamesDataN);
+VarNamesDataN_P_PV=VarNamesDataN_P((1:length(VarNamesDataN_P)-1));
+
+
+
+
+
+
+% label on x axis with feature number and name
+Feature_No_cell =num2cell(1:length(VarNamesDataN_P_PV));
+Feature_No_str=string(Feature_No_cell);
+Dash = {'-'};
+xlabels = strcat(Feature_No_str, Dash,VarNamesDataN_P_PV);
+xticklabels(xlabels)
+xtickangle(90)
+ylabel('Feature Weight')
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
